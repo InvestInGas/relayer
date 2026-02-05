@@ -1,97 +1,94 @@
 # InvestInGas Relayer v2
 
-Express API service for processing gas futures intents with the Uniswap v4 hook architecture.
+The **InvestInGas Relayer** is a critical infrastructure component that connects the frontend, the Uniswap v4 Hook (on Sepolia), and the Sui Gas Oracle. It enables users to purchase gas futures with signatures rather than direct contract interaction, providing a seamless UX.
 
-## Architecture
+## 🏗 Architecture
 
+```mermaid
+graph LR
+    User[User / Frontend] -- 1. Sign Intent --> Relayer
+    Relayer -- 2. Read Gas Price --> SuiOracle[Sui Oracle]
+    Relayer -- 3. Execute Trade --> Hook[InvestInGasHook (Sepolia)]
+    Relayer -- 4. Bridge Funds --> LiFi[LiFi Bridge]
 ```
-Frontend → Relayer → InvestInGasHook (Sepolia)
-                  ↓
-            Sui Oracle (gas prices)
-                  ↓
-            LiFi Bridge (cross-chain)
-```
 
-## Endpoints
+## 🚀 Quick Start
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Health check and relayer status |
-| `/api/prices` | GET | All gas prices from Sui oracle |
-| `/api/prices/:chain` | GET | Gas price for specific chain |
-| `/api/positions/:user` | GET | User's NFT positions |
-| `/api/positions/token/:tokenId` | GET | Specific position details |
-| `/api/purchase` | POST | Purchase gas position |
-| `/api/redeem` | POST | Redeem gas position |
-| `/api/lifi/quote` | GET | Get LiFi bridge quote |
-| `/api/lifi/chains` | GET | Supported chains |
+### 1. Prerequisites
+- Node.js v18+
+- Use a wallet with **Sepolia ETH** (for gas fees).
+- Deployed `InvestInGasHook` and `LiFiBridger` contracts.
+- A valid `Sui Oracle Object ID` (deployed on Sui Testnet).
 
-## Setup
-
+### 2. Installation
 ```bash
 # Install dependencies
 npm install
 
-# Copy env template
-cp .env.example .env
-
-# Edit .env with your configuration
-
-# Run in development
-npm run dev
-
-# Build for production
+# Build the project
 npm run build
+```
+
+### 3. Configuration
+Copy the example environment file:
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and fill in the required values:
+```ini
+EVM_RPC_URL=https://sepolia.infura.io/v3/YOUR_KEY
+RELAYER_PRIVATE_KEY=your_private_key_here
+
+HOOK_ADDRESS=0x...      
+BRIDGER_ADDRESS=0x...   
+
+SUI_NETWORK=testnet
+SUI_ORACLE_OBJECT_ID=0x... 
+```
+
+### 4. Running the Relayer
+```bash
 npm start
+
+npm run dev
 ```
 
-## Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `EVM_RPC_URL` | Yes | Sepolia RPC URL |
-| `HOOK_ADDRESS` | Yes | InvestInGasHook contract address |
-| `BRIDGER_ADDRESS` | Yes | LiFiBridger contract address |
-| `RELAYER_PRIVATE_KEY` | Yes | Relayer wallet private key |
-| `SUI_NETWORK` | Yes | Sui network (testnet/mainnet) |
-| `SUI_ORACLE_OBJECT_ID` | Yes | Sui gas oracle object ID |
-| `PORT` | No | Server port (default: 3001) |
-| `MAX_SLIPPAGE_BPS` | No | Max slippage in bps (default: 100) |
-| `SOURCE_CHAIN` | No | Source chain name (default: sepolia) |
-
-## API Examples
-
-### Purchase Position
-
-```bash
-curl -X POST http://localhost:3001/api/purchase \
-  -H "Content-Type: application/json" \
-  -d '{
-    "user": "0x...",
-    "usdcAmount": "100000000",
-    "targetChain": "arbitrum",
-    "expiryDays": 30,
-    "userSignature": "0x...",
-    "timestamp": 1234567890
-  }'
+You should see:
+```
+Relayer listening on port 3001
+Is authorized relayer: true
 ```
 
-### Redeem Position
+## 🔐 Authorization
+For the relayer to work, the wallet associated with `RELAYER_PRIVATE_KEY` must be authorized on the Hook contract.
 
-```bash
-curl -X POST http://localhost:3001/api/redeem \
-  -H "Content-Type: application/json" \
-  -d '{
-    "user": "0x...",
-    "tokenId": 0,
-    "wethAmount": "max",
-    "userSignature": "0x...",
-    "timestamp": 1234567890
-  }'
-```
+**If you see:** `WARNING: This wallet is NOT the authorized relayer!`
 
-### Get Positions
+**Fix:** Call `setRelayer(YOUR_RELAYER_ADDRESS)` on the `InvestInGasHook` contract using the contract owner's wallet.
 
-```bash
-curl http://localhost:3001/api/positions/0xYourAddress
-```
+## 📡 API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| **Health** | | |
+| `/health` | GET | Check relayer status and authorization |
+| **Market Data** | | |
+| `/api/prices` | GET | Fetch all gas prices from Sui Oracle |
+| `/api/prices/:chain` | GET | Fetch specific chain price |
+| `/api/lifi/chains` | GET | List supported destination chains |
+| **User Data** | | |
+| `/api/positions/:user` | GET | List user's active gas positions |
+| `/api/positions/token/:id`| GET | Get details for a specific position |
+| **Actions** | | |
+| `/api/purchase` | POST | Execute a purchase (requires signature) |
+| `/api/redeem` | POST | Redeem a position (requires signature) |
+
+## 🛠 Troubleshooting
+
+**"Gas price is stale"**
+- The Sui Oracle hasn't been updated in >5 minutes.
+- Check if your `oracle-bot` is running and publishing prices.
+
+**"Chain not supported"**
+- Ensure the chain is added to the `InvestInGasHook` via `addChain`.
