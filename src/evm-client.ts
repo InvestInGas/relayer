@@ -226,7 +226,7 @@ export class EvmHookClient {
     }
 
     /**
-     * Verify a user's signature for purchase intent
+     * Verify a user's signature for purchase intent (EIP-712)
      */
     static verifyPurchaseSignature(
         user: string,
@@ -234,33 +234,83 @@ export class EvmHookClient {
         targetChain: string,
         expiryDays: number,
         timestamp: number,
-        signature: string
+        signature: string,
+        verifyingContract: string
     ): boolean {
-        const messageHash = ethers.solidityPackedKeccak256(
-            ['string', 'address', 'uint256', 'string', 'uint256', 'uint256'],
-            ['InvestInGas:Purchase', user, usdcAmount, targetChain, expiryDays, timestamp]
-        );
+        const domain = {
+            name: 'InvestInGas',
+            version: '1',
+            chainId: 11155111, // Sepolia
+            verifyingContract: verifyingContract
+        };
 
-        const recovered = ethers.verifyMessage(ethers.getBytes(messageHash), signature);
-        return recovered.toLowerCase() === user.toLowerCase();
+        const types = {
+            Purchase: [
+                { name: 'user', type: 'address' },
+                { name: 'usdcAmount', type: 'uint256' },
+                { name: 'targetChain', type: 'string' },
+                { name: 'expiryDays', type: 'uint256' },
+                { name: 'timestamp', type: 'uint256' },
+            ],
+        };
+
+        const value = {
+            user,
+            usdcAmount,
+            targetChain,
+            expiryDays: BigInt(expiryDays),
+            timestamp: BigInt(timestamp),
+        };
+
+        try {
+            const recovered = ethers.verifyTypedData(domain, types, value, signature);
+            return recovered.toLowerCase() === user.toLowerCase();
+        } catch (error) {
+            console.error('Signature verification failed:', error);
+            return false;
+        }
     }
 
     /**
-     * Verify a user's signature for redeem intent
+     * Verify a user's signature for redeem intent (EIP-712)
      */
     static verifyRedeemSignature(
         user: string,
         tokenId: number,
         wethAmount: bigint,
         timestamp: number,
-        signature: string
+        signature: string,
+        verifyingContract: string
     ): boolean {
-        const messageHash = ethers.solidityPackedKeccak256(
-            ['string', 'address', 'uint256', 'uint256', 'uint256'],
-            ['InvestInGas:Redeem', user, tokenId, wethAmount, timestamp]
-        );
+        const domain = {
+            name: 'InvestInGas',
+            version: '1',
+            chainId: 11155111, // Sepolia
+            verifyingContract: verifyingContract
+        };
 
-        const recovered = ethers.verifyMessage(ethers.getBytes(messageHash), signature);
-        return recovered.toLowerCase() === user.toLowerCase();
+        const types = {
+            Redeem: [
+                { name: 'user', type: 'address' },
+                { name: 'tokenId', type: 'uint256' },
+                { name: 'wethAmount', type: 'uint256' },
+                { name: 'timestamp', type: 'uint256' },
+            ],
+        };
+
+        const value = {
+            user,
+            tokenId: BigInt(tokenId),
+            wethAmount,
+            timestamp: BigInt(timestamp),
+        };
+
+        try {
+            const recovered = ethers.verifyTypedData(domain, types, value, signature);
+            return recovered.toLowerCase() === user.toLowerCase();
+        } catch (error) {
+            console.error('Signature verification failed:', error);
+            return false;
+        }
     }
 }

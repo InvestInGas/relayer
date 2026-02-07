@@ -213,7 +213,8 @@ app.post('/api/purchase', async (req: Request, res: Response) => {
             targetChain,
             parseInt(expiryDays),
             timestamp,
-            userSignature
+            userSignature,
+            config.hookAddress
         );
 
         if (!isValid) {
@@ -316,7 +317,8 @@ app.post('/api/redeem', async (req: Request, res: Response) => {
             parseInt(tokenId),
             redeemAmount,
             timestamp,
-            userSignature
+            userSignature,
+            config.hookAddress
         );
 
         if (!isValid) {
