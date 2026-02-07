@@ -118,6 +118,13 @@ app.get('/api/prices/:chain', async (req: Request, res: Response) => {
 
 // ============ Position Endpoints ============
 
+const serializePosition = (pos: any) => ({
+    ...pos,
+    wethAmount: pos.wethAmount.toString(),
+    remainingWethAmount: pos.remainingWethAmount.toString(),
+    lockedGasPriceWei: pos.lockedGasPriceWei.toString(),
+});
+
 app.get('/api/positions/:user', async (req: Request, res: Response) => {
     try {
         const { user } = req.params;
@@ -125,11 +132,14 @@ app.get('/api/positions/:user', async (req: Request, res: Response) => {
 
         // Enrich with gas units available
         const enrichedPositions = await Promise.all(
-            positions.map(async (pos) => ({
-                ...pos,
-                gasUnitsAvailable: (await evmClient.getGasUnitsAvailable(pos.tokenId)).toString(),
-                isExpired: pos.expiry < Math.floor(Date.now() / 1000),
-            }))
+            positions.map(async (pos) => {
+                const gasUnitsAvailable = await evmClient.getGasUnitsAvailable(pos.tokenId);
+                return {
+                    ...serializePosition(pos),
+                    gasUnitsAvailable: gasUnitsAvailable.toString(),
+                    isExpired: pos.expiry < Math.floor(Date.now() / 1000),
+                };
+            })
         );
 
         res.json({ positions: enrichedPositions });
@@ -153,7 +163,7 @@ app.get('/api/positions/token/:tokenId', async (req: Request, res: Response) => 
 
         res.json({
             position: {
-                ...position,
+                ...serializePosition(position),
                 gasUnitsAvailable: gasUnitsAvailable.toString(),
                 isExpired: position.expiry < Math.floor(Date.now() / 1000),
             },
