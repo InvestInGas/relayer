@@ -161,25 +161,50 @@ export class EvmHookClient {
 
     /**
      * Get all positions for a user
-     * Note: This is an approximation - we scan recent token IDs
+     * Optimized to check balance first and use parallel requests
      */
-    async getUserPositions(user: string, maxTokenId: number = 1000): Promise<GasPosition[]> {
-        const positions: GasPosition[] = [];
+    async getUserPositions(user: string, maxScanId: number = 1000): Promise<GasPosition[]> {
+        try {
+            const balance = await this.contract.balanceOf(user);
+            if (balance === 0n) return [];
 
-        // Scan for tokens owned by user
-        for (let i = 0; i < maxTokenId; i++) {
-            try {
-                const owner = await this.contract.ownerOf(i);
-                if (owner.toLowerCase() === user.toLowerCase()) {
-                    const pos = await this.getPosition(i);
-                    if (pos) positions.push(pos);
+            const positions: GasPosition[] = [];
+            const userLower = user.toLowerCase();
+
+            // Check tokens in parallel batches to avoid overloading RPC
+            const batchSize = 50;
+            for (let i = 0; i < maxScanId; i += batchSize) {
+                const limit = Math.min(i + batchSize, maxScanId);
+                const batchPromises = [];
+
+                for (let tokenId = i; tokenId < limit; tokenId++) {
+                    batchPromises.push(
+                        this.contract.ownerOf(tokenId)
+                            .then(owner => ({ tokenId, owner: owner.toLowerCase() }))
+                            .catch(() => null) // Token doesn't exist
+                    );
                 }
-            } catch {
-                // Token doesn't exist or was burned
-            }
-        }
 
-        return positions;
+                const results = await Promise.all(batchPromises);
+
+                for (const res of results) {
+                    if (res && res.owner === userLower) {
+                        const pos = await this.getPosition(res.tokenId);
+                        if (pos) positions.push(pos);
+                    }
+
+                    // Optimization: if we found all tokens, we can stop scanning
+                    if (BigInt(positions.length) >= balance) {
+                        return positions;
+                    }
+                }
+            }
+
+            return positions;
+        } catch (error) {
+            console.error('Error in getUserPositions:', error);
+            return [];
+        }
     }
 
     /**
