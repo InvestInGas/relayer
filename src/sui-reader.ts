@@ -68,55 +68,52 @@ export class SuiOracleReader {
      */
     async fetchChainPrice(chain: string): Promise<SuiGasPrice | null> {
         try {
-            // Get dynamic field for this chain from the prices table
-            const dynamicFields = await this.client.getDynamicFields({
-                parentId: this.oracleObjectId,
+            // 1. Get the oracle object to find the prices table ID
+            const object = await this.client.getObject({
+                id: this.oracleObjectId,
+                options: { showContent: true },
             });
 
-            // Find the prices table field
-            const pricesField = dynamicFields.data.find(
-                (field) => field.name.value === 'prices'
-            );
-
-            if (!pricesField) {
-                // Fallback: try to get the object directly and parse it
-                const object = await this.client.getObject({
-                    id: this.oracleObjectId,
-                    options: { showContent: true },
-                });
-
-                if (!object.data?.content || object.data.content.dataType !== 'moveObject') {
-                    return null;
-                }
-
-                // Parse directly from object fields if table is embedded
-                const fields = object.data.content.fields as any;
-
-                // Navigate to prices table
-                if (fields.prices?.fields?.contents) {
-                    const pricesMap = fields.prices.fields.contents;
-                    const chainEntry = pricesMap.find((item: any) =>
-                        item.fields?.key === chain
-                    );
-
-                    if (chainEntry) {
-                        const priceFields = chainEntry.fields.value.fields;
-                        const priceWei = priceFields.price_wei;
-
-                        return {
-                            chain,
-                            priceWei: priceWei.toString(),
-                            priceGwei: this.weiToGwei(priceWei.toString()),
-                            high24h: priceFields.high_24h?.toString() || priceWei.toString(),
-                            low24h: priceFields.low_24h?.toString() || priceWei.toString(),
-                            timestampMs: parseInt(priceFields.timestamp_ms || '0'),
-                            gasToken: priceFields.gas_token || 'ETH',
-                        };
-                    }
-                }
+            if (!object.data?.content || object.data.content.dataType !== 'moveObject') {
+                return null;
             }
 
-            return null;
+            const fields = object.data.content.fields as any;
+            const tableId = fields.prices?.fields?.id?.id;
+
+            if (!tableId) {
+                console.error('Prices table ID not found in oracle object');
+                return null;
+            }
+
+            // 2. Fetch the specific price from the table using dynamic field lookup
+            // Key is 0x1::string::String for Table<String, GasPrice>
+            const response = await this.client.getDynamicFieldObject({
+                parentId: tableId,
+                name: {
+                    type: '0x1::string::String',
+                    value: chain
+                }
+            });
+
+            if (!response.data?.content || response.data.content.dataType !== 'moveObject') {
+                return null;
+            }
+
+            const priceFields = response.data.content.fields as any;
+            const value = priceFields.value?.fields;
+
+            if (!value) return null;
+
+            return {
+                chain,
+                priceWei: value.price_wei.toString(),
+                priceGwei: this.weiToGwei(value.price_wei.toString()),
+                high24h: value.high_24h?.toString() || value.price_wei.toString(),
+                low24h: value.low_24h?.toString() || value.price_wei.toString(),
+                timestampMs: Number(value.timestamp_ms || 0),
+                gasToken: value.gas_token || 'ETH',
+            };
         } catch (error) {
             console.error(`Error fetching price for ${chain}:`, error);
             return null;
