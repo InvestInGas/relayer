@@ -36,10 +36,11 @@ interface LiFiQuoteResponse {
 
 // Chain ID mappings
 const CHAIN_IDS: Record<string, number> = {
-    sepolia: 11155111,
+    ethereum: 11155111,
     arbitrum: 421614,  // Arbitrum Sepolia
     base: 84532,       // Base Sepolia
     polygon: 80002,    // Polygon Amoy
+    optimism: 11155420, // Optimism Sepolia
 };
 
 // Native token addresses (use zero address for native)
@@ -48,10 +49,11 @@ const ETH_ADDRESS = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
 
 // Gas tokens per chain
 const GAS_TOKENS: Record<string, string> = {
-    sepolia: ETH_ADDRESS,
+    ethereum: ETH_ADDRESS,
     arbitrum: ETH_ADDRESS,
     base: ETH_ADDRESS,
     polygon: NATIVE_TOKEN, // MATIC
+    optimism: ETH_ADDRESS,
 };
 
 export interface LiFiBridgeData {

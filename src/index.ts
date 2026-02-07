@@ -27,7 +27,7 @@ const config = {
     suiNetwork: (process.env.SUI_NETWORK || 'testnet') as 'testnet' | 'mainnet' | 'devnet',
     suiOracleObjectId: process.env.SUI_ORACLE_OBJECT_ID || '',
     maxSlippageBps: parseInt(process.env.MAX_SLIPPAGE_BPS || '100'),
-    sourceChain: process.env.SOURCE_CHAIN || 'sepolia',  // Chain where hook is deployed
+    sourceChain: process.env.SOURCE_CHAIN || 'ethereum',  // Chain where hook is deployed
 };
 
 // Initialize clients
