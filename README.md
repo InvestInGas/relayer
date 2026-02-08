@@ -12,13 +12,40 @@ graph LR
     Relayer -- 4. Bridge Funds --> LiFi[LiFi Bridge]
 ```
 
+## Source Code (`src/`)
+
+### `index.ts`
+The main entry point for the Relayer service.
+- **Express Server**: Hosts the API endpoints for the frontend.
+- **Transaction Orchestration**: Manages the flow from user intent (signature) to on-chain execution.
+- **Security**: Verifies EIP-712 signatures before submitting transactions.
+- **CORS & Middleware**: Configured for cross-origin requests from the frontend.
+
+### `evm-client.ts`
+The interface for interacting with the EVM-based smart contracts.
+- **Hook Interaction**: Calls `purchasePosition` and `redeemPosition` on the `InvestInGasHook`.
+- **EIP-712 Verification**: Contains logic to recover signers from user purchase/redeem intents.
+- **Position Tracking**: Efficiently fetches and filters NFT positions for specific users.
+
+### `lifi-client.ts`
+Integrates with the LiFi SDK to handle cross-chain logistics.
+- **Quote Selection**: Fetches optimal bridging quotes for delivering native gas to target chains.
+- **Calldata Generation**: Generates the necessary low-level data for the `LiFiBridger` to execute cross-chain swaps.
+- **Same-Chain Detection**: Intelligently handles "redemptions" to the same chain without unnecessary bridging.
+
+### `sui-reader.ts`
+The bridge to the Sui Gas Oracle.
+- **Dynamic Field Lookup**: Reads real-time gas price data from the Sui `Table` storage.
+- **Format Conversion**: Converts raw wei values (u128) from Sui into human-readable gwei for the frontend.
+- **Multi-Chain Aggregation**: Fetches and aggregates prices for all supported EVM chains in one call.
+
 ## 🚀 Quick Start
 
 ### 1. Prerequisites
 - Node.js v18+
-- Use a wallet with **Sepolia ETH** (for gas fees).
+- Wallet with **Sepolia ETH** (for gas fees).
 - Deployed `InvestInGasHook` and `LiFiBridger` contracts.
-- A valid `Sui Oracle Object ID` (deployed on Sui Testnet).
+- Valid `Sui Oracle Object ID` (deployed on Sui Testnet).
 
 ### 2. Installation
 ```bash
@@ -51,44 +78,30 @@ SUI_ORACLE_OBJECT_ID=0x...
 ```bash
 npm start
 
+# For development (auto-reload)
 npm run dev
 ```
-
-You should see:
-```
-Relayer listening on port 3001
-Is authorized relayer: true
-```
-
-## 🔐 Authorization
-For the relayer to work, the wallet associated with `RELAYER_PRIVATE_KEY` must be authorized on the Hook contract.
-
-**If you see:** `WARNING: This wallet is NOT the authorized relayer!`
-
-**Fix:** Call `setRelayer(YOUR_RELAYER_ADDRESS)` on the `InvestInGasHook` contract using the contract owner's wallet.
 
 ## 📡 API Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | **Health** | | |
-| `/health` | GET | Check relayer status and authorization |
+| `/health` | GET | Check relayer status, version, and authorization |
 | **Market Data** | | |
 | `/api/prices` | GET | Fetch all gas prices from Sui Oracle |
-| `/api/prices/:chain` | GET | Fetch specific chain price |
-| `/api/lifi/chains` | GET | List supported destination chains |
+| `/api/prices/:chain` | GET | Fetch specific chain price and staleness check |
+| `/api/lifi/chains` | GET | List all chains supported for cross-chain delivery |
+| `/api/lifi/quote` | GET | Get a bridge quote for a specific redemption |
 | **User Data** | | |
-| `/api/positions/:user` | GET | List user's active gas positions |
-| `/api/positions/token/:id`| GET | Get details for a specific position |
+| `/api/positions/:user` | GET | List user's active/expired gas positions |
+| `/api/positions/token/:id`| GET | Get detailed data for a specific position ID |
 | **Actions** | | |
 | `/api/purchase` | POST | Execute a purchase (requires signature) |
 | `/api/redeem` | POST | Redeem a position (requires signature) |
 
-## 🛠 Troubleshooting
+## 🔐 Authorization
+For the relayer to work, the wallet associated with `RELAYER_PRIVATE_KEY` must be authorized on the Hook contract.
 
-**"Gas price is stale"**
-- The Sui Oracle hasn't been updated in >5 minutes.
-- Check if your `oracle-bot` is running and publishing prices.
+**Fix:** Call `setRelayer(YOUR_RELAYER_ADDRESS)` on the `InvestInGasHook` contract using the contract owner's wallet.
 
-**"Chain not supported"**
-- Ensure the chain is added to the `InvestInGasHook` via `addChain`.
