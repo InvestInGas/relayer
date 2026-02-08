@@ -8,8 +8,8 @@ The **InvestInGas Relayer** is a critical infrastructure component that connects
 graph LR
     User[User / Frontend] -- 1. Sign Intent --> Relayer
     Relayer -- 2. Read Gas Price --> SuiOracle[Sui Oracle]
-    Relayer -- 3. Execute Trade --> Hook[InvestInGasHook (Sepolia)]
-    Relayer -- 4. Bridge Funds --> LiFi[LiFi Bridge]
+    Relayer -- 3. Execute Trade --> Hook["InvestInGasHook (Sepolia)"]
+    Relayer -- 4. Bridge Funds --> LiFi["LiFi Bridge"]
 ```
 
 ## Source Code (`src/`)
